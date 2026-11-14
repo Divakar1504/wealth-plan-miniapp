@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart SIP Calculator</title>
-  <!-- 1. Official Telegram Mini App SDK -->
+  <title>Wealth Plan Calculator</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- 2. AdsGram SDK (Replace with your ad network script if using RichAds/Monetag) -->
-  <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--tg-theme-bg-color, #ffffff);
@@ -16,45 +14,97 @@
       padding: 20px;
       margin: 0;
     }
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 22px;
+    }
     .card {
       background: var(--tg-theme-secondary-bg-color, #f4f4f5);
       border-radius: 14px;
       padding: 18px;
       margin-bottom: 16px;
     }
-    label { display: block; font-size: 14px; margin-bottom: 6px; opacity: 0.85; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      opacity: 0.85;
+    }
     input {
-      width: 100%; padding: 10px; font-size: 16px; border-radius: 8px;
-      border: 1px solid #ccc; box-sizing: border-box; margin-bottom: 14px;
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(128, 128, 128, 0.3);
+      background-color: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #111111);
+      margin-bottom: 14px;
     }
     button {
-      width: 100%; padding: 14px; font-size: 16px; font-weight: 600;
-      border: none; border-radius: 10px; cursor: pointer;
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
       background-color: var(--tg-theme-button-color, #2481cc);
       color: var(--tg-theme-button-text-color, #ffffff);
     }
-    .result { font-size: 22px; font-weight: 700; margin-top: 10px; }
+    .result-label {
+      font-size: 13px;
+      opacity: 0.8;
+    }
+    .result-value {
+      font-size: 26px;
+      font-weight: 700;
+      margin: 6px 0 12px 0;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(128, 128, 128, 0.2);
+      font-size: 13px;
+    }
+    .stats strong {
+      display: block;
+      font-size: 15px;
+      margin-top: 3px;
+    }
   </style>
 </head>
 <body>
-  <h2>SIP Wealth Calculator</h2>
+  <h2>Wealth Plan Calculator</h2>
+
   <div class="card">
-    <label>Monthly Investment (₹)</label>
-    <input type="number" id="monthly" value="5000" />
+    <label for="monthly">Monthly SIP Investment (₹)</label>
+    <input type="number" id="monthly" value="5000" min="100" />
 
-    <label>Expected Annual Return (%)</label>
-    <input type="number" id="rate" value="12" />
+    <label for="rate">Expected Annual Return (%)</label>
+    <input type="number" id="rate" value="12" step="0.1" min="0.1" />
 
-    <label>Time Period (Years)</label>
-    <input type="number" id="years" value="10" />
+    <label for="years">Investment Duration (Years)</label>
+    <input type="number" id="years" value="10" min="1" max="50" />
 
-    <button onclick="calculateWithAd()">Calculate Returns</button>
+    <button onclick="calculateSIP()">Calculate Returns</button>
   </div>
 
-  <div class="card" id="outputCard" style="display:none;">
-    <div>Estimated Total Value</div>
-    <div class="result" id="totalValue">₹0</div>
-    <div style="font-size:13px; margin-top:6px; opacity:0.8;" id="breakdown"></div>
+  <div class="card" id="outputCard" style="display: none;">
+    <div class="result-label">Estimated Total Corpus</div>
+    <div class="result-value" id="totalValue">₹0</div>
+    <div class="stats">
+      <div>
+        <span class="result-label">Total Invested</span>
+        <strong id="investedValue">₹0</strong>
+      </div>
+      <div>
+        <span class="result-label">Wealth Gained</span>
+        <strong id="gainValue">₹0</strong>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -62,10 +112,11 @@
     tg.ready();
     tg.expand();
 
-    // Initialize AdsGram with your Block ID from partner.adsgram.ai
-    const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "YOUR_BLOCK_ID" }) : null;
+    function calculateSIP() {
+      if (tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred("medium");
+      }
 
-    function showCalculation() {
       const P = parseFloat(document.getElementById("monthly").value) || 0;
       const annualRate = parseFloat(document.getElementById("rate").value) || 0;
       const years = parseFloat(document.getElementById("years").value) || 0;
@@ -74,26 +125,12 @@
       const n = years * 12;
       const futureValue = r > 0 ? P * ((Math.pow(1 + r, n) - 1) / r) * (1 + r) : P * n;
       const invested = P * n;
+      const gain = futureValue - invested;
 
       document.getElementById("outputCard").style.display = "block";
       document.getElementById("totalValue").innerText = "₹" + Math.round(futureValue).toLocaleString("en-IN");
-      document.getElementById("breakdown").innerText =
-        `Invested: ₹${invested.toLocaleString("en-IN")} | Wealth Gained: ₹${Math.round(futureValue - invested).toLocaleString("en-IN")}`;
-    }
-
-    function calculateWithAd() {
-      // Haptic feedback for a native app feel
-      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred("medium");
-
-      if (AdController) {
-        AdController.show().then(() => {
-          showCalculation(); // User watched/closed the ad
-        }).catch(() => {
-          showCalculation(); // Fallback if no ad is available so UX never breaks
-        });
-      } else {
-        showCalculation();
-      }
+      document.getElementById("investedValue").innerText = "₹" + Math.round(invested).toLocaleString("en-IN");
+      document.getElementById("gainValue").innerText = "₹" + Math.round(gain).toLocaleString("en-IN");
     }
   </script>
 </body>
